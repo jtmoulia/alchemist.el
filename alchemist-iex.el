@@ -40,8 +40,12 @@
 (defvar alchemist-iex-buffer nil
   "The buffer in which the Elixir IEx process is running.")
 
+(defvar alchemist-iex-buffer-root-name "Alchemist-IEx"
+  "The root name for alchemist IEx buffers.")
+
 (defvar alchemist-iex-mode-hook nil
   "Hook for customizing `alchemist-iex-mode'.")
+
 
 (define-derived-mode alchemist-iex-mode comint-mode "Alchemist-IEx"
   "Major mode for interacting with an Elixir IEx process."
@@ -55,7 +59,11 @@
    (if (null arg) alchemist-iex-program-name
      (read-string "Command to run Elixir IEx: " (concat alchemist-iex-program-name arg)))))
 
-(defun alchemist-iex-start-process (command)
+(defun alchemist-iex--comint-name (name)
+  (if name (concat alchemist-iex-buffer-root-name "-" name)
+    alchemist-iex-buffer-root-name))
+
+(defun alchemist-iex-start-process (command &optional name)
   "Start an IEX process.
 With universal prefix \\[universal-argument], prompts for a COMMAND,
 otherwise uses `alchemist-iex-program-name'.
@@ -63,12 +71,13 @@ It runs the hook `alchemist-iex-mode-hook' after starting the process and
 setting up the IEx buffer."
   (interactive (list (alchemist-iex-command current-prefix-arg)))
   (setq alchemist-iex-buffer
-        (apply 'make-comint "Alchemist-IEx" (car command) nil (cdr command)))
+        (apply 'make-comint (alchemist-iex--comint-name name)
+               (car command) nil (cdr command)))
   (with-current-buffer alchemist-iex-buffer
     (alchemist-iex-mode)
     (run-hooks 'alchemist-iex-mode-hook)))
 
-(defun alchemist-iex-process (&optional arg)
+(defun alchemist-iex-process (&optional arg name)
   (or (if (buffer-live-p alchemist-iex-buffer)
           (get-buffer-process alchemist-iex-buffer))
       (progn
@@ -161,7 +170,7 @@ Show the IEx buffer if an IEx process is already run."
   (if (alchemist-project-p)
       (progn
         (alchemist-project--establish-root-directory)
-        (let ((proc (alchemist-iex-process " -S mix")))
+        (let ((proc (alchemist-iex-process " -S mix" (alchemist-project-name))))
           (cd old-directory)
           (pop-to-buffer (process-buffer proc))))
     (message "No mix.exs file available. Please use `alchemist-iex-run' instead."))))
